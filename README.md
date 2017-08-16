@@ -1,5 +1,8 @@
 # export-github-issues
 
+[![Build Status](https://travis-ci.org/johnsonz/export-github-issues.svg?branch=master)](https://travis-ci.org/johnsonz/export-github-issues) [![GPLv3 License](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://github.com/johnsonz/export-github-issues/blob/master/LICENS)
+============
+
 ## 说明
 用于导出github特定仓库的所有issues，导出格式为date_title_state_number.html。
 
@@ -9,7 +12,7 @@
 
 `"author":""` github ID，如johnsonz
 
-``"repo":""` 仓库名称，如export-github-issues
+`"repo":""` 仓库名称，如export-github-issues
 
 `"per_page":80` 最大不能超过100
 
