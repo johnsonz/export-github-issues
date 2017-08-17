@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/russross/blackfriday"
 )
 
 //Issue struct
@@ -106,9 +109,12 @@ func main() {
 	if len(issues) == 0 {
 		log.Println("no issues found.")
 	}
+	var buff bytes.Buffer
 	for index, issue := range issues {
 		title := fmt.Sprintf("%s_%s_%s_#%d.html", issue.CreatedAt[:10], issue.Title, issue.State, issue.Number)
+		title = remove(title)
 		log.Printf("hit %d: %s\n", index, title)
+		buff.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href='%s' target='_blank'>#%d</td></tr>", index, issue.CreatedAt[:10], issue.Title, string(blackfriday.MarkdownBasic([]byte(issue.Body))), issue.State, urlEncode(title), issue.Number))
 		resp, err := http.Get(issue.HTMLURL)
 		if err != nil {
 			log.Println("get http response body error: ", err)
@@ -118,10 +124,11 @@ func main() {
 		if err != nil {
 			log.Println("get http response body error: ", err)
 		}
-		if err := ioutil.WriteFile(filepath.Join(issuesDir, remove(title)), body, 0755); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(issuesDir, title), body, 0755); err != nil {
 			log.Println("error: ", err)
 		}
 	}
+	generateIndexHTML(buff.String())
 	fmt.Println("\n\nPress Enter to continue...")
 	fmt.Scanln()
 }
@@ -139,4 +146,71 @@ func parseConfig() {
 
 func remove(s string) string {
 	return strings.NewReplacer("/", "", "\\", "", ":", "", "*", "", "<", "", ">", "", "|", "", "\"", "", "?", "").Replace(s)
+}
+
+func urlEncode(s string) string {
+	return strings.NewReplacer("!", "%21", "#", "%23", "$", "%24", "&", "%26", "'", "%27", "(", "%28", ")", "%29", "*", "%2A", "+", "%2B", ",", "%2C", "/", "%2F", ":", "%3A", ";", "%3B", "=", "%3D", "?", "%3F", "@", "%40", "[", "%5B", "]", "%5D").Replace(s)
+}
+
+func generateIndexHTML(c string) {
+	html := `<!DOCTYPE html>
+	<html>
+
+	<head>
+	    <meta charset="utf-8">
+	    <meta name="viewport" content="width=device-width">
+	    <title>Index</title>
+	    <style>
+	        .container {
+	            margin: 0 auto;
+	        }
+
+	        table {
+	            border-collapse: collapse;
+	            border-spacing: 0;
+	            margin: auto;
+				table-layout:fixed;
+				width: 90%;
+	            max-width: 90%;
+	        }
+
+	        table,
+	        th,
+	        td {
+	            border: 1px solid #ddd;
+	            text-align: center;
+				word-wrap:break-word;
+				word-break:break-all;
+	        }
+
+	        th,
+	        td {
+	            padding-top: 10px;
+	            padding-bottom: 10px;
+	        }
+
+			img {
+				width: 50%;
+			}
+	    </style>
+	</head>
+
+	<body>
+	    <div class="container">
+	        <table>
+	            <tr>
+	                <th width="40px">Index</th>
+	                <th width="100px">Created_At</th>
+	                <th width="20%">Title</th>
+	                <th width="80%">Body</th>
+	                <th width="100px">State</th>
+	                <th width="100px">#issue</th>
+	            </tr>` + c + ` </table>
+	 	    </div>
+	 	</body>
+
+	 	</html>`
+	if err := ioutil.WriteFile(filepath.Join(issuesDir, "index.html"), []byte(html), 0755); err != nil {
+		log.Println("generate index.html error: ", err)
+	}
 }
