@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -37,7 +38,7 @@ type Issue struct {
 
 //Config struct
 type Config struct {
-	Author       string `json:"author"`
+	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	PerPage      int    `json:"per_page"`
 	ClientID     string `json:"client_id"`
@@ -59,7 +60,11 @@ var issuesDir string
 
 func init() {
 	parseConfig()
-	issuesDir = config.Author + "_" + config.Repo + "_issues"
+	usage()
+	if config.PerPage > 100 || config.PerPage < 0 {
+		config.PerPage = 100
+	}
+	issuesDir = config.Owner + "_" + config.Repo + "_issues"
 	if err := os.Mkdir(issuesDir, 0755); os.IsExist(err) {
 		log.Printf("dir %s already exists\n", issuesDir)
 	} else {
@@ -73,7 +78,7 @@ func main() {
 	var page = 1
 
 	for {
-		resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?page=%d&per_page=%d&state=all&client_id=%s&client_secret=%s", config.Author, config.Repo, page, config.PerPage, config.ClientID, config.ClientSecret))
+		resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?page=%d&per_page=%d&state=all&client_id=%s&client_secret=%s", config.Owner, config.Repo, page, config.PerPage, config.ClientID, config.ClientSecret))
 		if err != nil {
 			log.Println("http.get error: ", err)
 		}
@@ -213,4 +218,49 @@ func generateIndexHTML(c string) {
 	if err := ioutil.WriteFile(filepath.Join(issuesDir, "index.html"), []byte(html), 0755); err != nil {
 		log.Println("generate index.html error: ", err)
 	}
+}
+
+func usage() {
+	flag.Usage = func() {
+		fmt.Println(`
+Usage: export-github-issues [COMMANDS] [VARS]
+
+SUPPORT COMMANDS:
+	-h, --help              help messages
+
+SUPPORT VARS:
+	-o, --owner             github owner of repesitory
+	-r, --repo              github repesitory
+	-p, --per_page          pagination, page size up to 100
+	-i, --client_id         github OAuth application's client ID
+	-s, --client_secret     github OAuth application's client Secret
+				`)
+	}
+	var (
+		owner        string
+		repo         string
+		perPage      int
+		clientID     string
+		clientSecret string
+	)
+
+	flag.StringVar(&owner, "o", config.Owner, "github owner of repesitory")
+	flag.StringVar(&owner, "owner", config.Owner, "github owner of repesitory")
+	flag.StringVar(&repo, "r", config.Repo, "github repesitory")
+	flag.StringVar(&repo, "repo", config.Repo, "github repesitory")
+	flag.IntVar(&perPage, "p", config.PerPage, "pagination, page size up to 100")
+	flag.IntVar(&perPage, "per_page", config.PerPage, "pagination, page size up to 100")
+	flag.StringVar(&clientID, "i", config.ClientID, "github OAuth application's client ID")
+	flag.StringVar(&clientID, "client_id", config.ClientID, "github OAuth application's client ID")
+	flag.StringVar(&clientSecret, "s", config.ClientSecret, "github OAuth application's client Secret")
+	flag.StringVar(&clientSecret, "client_secret", config.ClientSecret, "github OAuth application's client Secret")
+
+	flag.Set("logtostderr", "true")
+	flag.Parse()
+
+	config.Owner = owner
+	config.Repo = repo
+	config.PerPage = perPage
+	config.ClientID = clientID
+	config.ClientSecret = clientSecret
 }
