@@ -19,3 +19,19 @@
 `"client_id":""` 不填有API次数限制，"Settings"->"OAuth applications"中生成的Client ID
 
 `"client_secret":""` 不填有API次数限制，"Settings"->"OAuth applications"中生成的Client Secret
+
+## Usage
+
+This project is to export all issues for specified repository. The exported file format looks like this: date_title_state_issue number.html. An index.html file which includes all issues will be generated before the application finishes its run.
+
+## Configuration
+
+`"author":""` github ID，such as "johnsonz"
+
+`"repo":""` repesitory, such as "export-github-issues"
+
+`"per_page":80` the maximum number is 100
+
+`"client_id":""` there is API rate limit if empty. If you need a higher rate limit, please put in your OAuth application's client ID and secret.
+
+`"client_secret":""` there is API rate limit if empty. If you need a higher rate limit, please put in your OAuth application's client ID and secret.
