@@ -41,6 +41,7 @@ type Config struct {
 	Owner        string `json:"owner"`
 	Repo         string `json:"repo"`
 	PerPage      int    `json:"per_page"`
+	State        string `json:"state"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
@@ -64,6 +65,9 @@ func init() {
 	if config.PerPage > 100 || config.PerPage < 0 {
 		config.PerPage = 100
 	}
+	if config.State != "all" && config.State != "open" && config.State != "closed" {
+		config.State = "all"
+	}
 	issuesDir = config.Owner + "_" + config.Repo + "_issues"
 	if err := os.Mkdir(issuesDir, 0755); os.IsExist(err) {
 		log.Printf("dir %s already exists\n", issuesDir)
@@ -78,7 +82,7 @@ func main() {
 	var page = 1
 
 	for {
-		resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?page=%d&per_page=%d&state=all&client_id=%s&client_secret=%s", config.Owner, config.Repo, page, config.PerPage, config.ClientID, config.ClientSecret))
+		resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
 		if err != nil {
 			log.Println("http.get error: ", err)
 		}
@@ -226,20 +230,22 @@ func usage() {
 Usage: export-github-issues [COMMANDS] [VARS]
 
 SUPPORT COMMANDS:
-	-h, --help              help messages
+	-h, --help               help messages
 
 SUPPORT VARS:
-	-o, --owner             github owner of repesitory
-	-r, --repo              github repesitory
-	-p, --per_page          pagination, page size up to 100
-	-i, --client_id         github OAuth application's client ID
-	-s, --client_secret     github OAuth application's client Secret
+	-o, --owner              github owner of repesitory
+	-r, --repo               github repesitory
+	-p, --per_page           pagination, page size up to 100
+	-s, --state              issues state (open, closed or all)
+	-ci, --client_id         github OAuth application's client ID
+	-cs, --client_secret     github OAuth application's client Secret
 				`)
 	}
 	var (
 		owner        string
 		repo         string
 		perPage      int
+		state        string
 		clientID     string
 		clientSecret string
 	)
@@ -250,9 +256,11 @@ SUPPORT VARS:
 	flag.StringVar(&repo, "repo", config.Repo, "github repesitory")
 	flag.IntVar(&perPage, "p", config.PerPage, "pagination, page size up to 100")
 	flag.IntVar(&perPage, "per_page", config.PerPage, "pagination, page size up to 100")
-	flag.StringVar(&clientID, "i", config.ClientID, "github OAuth application's client ID")
+	flag.StringVar(&state, "s", config.State, "issues state (open, closed or all)")
+	flag.StringVar(&state, "state", config.State, "issues state (open, closed or all)")
+	flag.StringVar(&clientID, "ci", config.ClientID, "github OAuth application's client ID")
 	flag.StringVar(&clientID, "client_id", config.ClientID, "github OAuth application's client ID")
-	flag.StringVar(&clientSecret, "s", config.ClientSecret, "github OAuth application's client Secret")
+	flag.StringVar(&clientSecret, "cs", config.ClientSecret, "github OAuth application's client Secret")
 	flag.StringVar(&clientSecret, "client_secret", config.ClientSecret, "github OAuth application's client Secret")
 
 	flag.Set("logtostderr", "true")
@@ -261,6 +269,7 @@ SUPPORT VARS:
 	config.Owner = owner
 	config.Repo = repo
 	config.PerPage = perPage
+	config.State = state
 	config.ClientID = clientID
 	config.ClientSecret = clientSecret
 }
