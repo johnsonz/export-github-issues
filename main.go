@@ -97,7 +97,8 @@ func main() {
 		resetm := int(math.Ceil(resett.Sub(time.Now()).Minutes())) + 5
 		if remaining == "0" {
 			log.Printf("github API 已达到次数限制，将在%d分钟后自动重试. 或者将自己的clinet_id和client_secret填入到配置文件以增加API次数. 参见 https://developer.github.com/v3/#rate-limiting\n", resetm)
-			time.Sleep(time.Minute * time.Duration(resetm))
+			log.Printf("github API rate limit. The application will retry automatically after %d minutes. Or put in your clinet_id and client_secret to config file to increase the API rate. Refer to https://developer.github.com/v3/#rate-limiting\n\n", resetm)
+			timer(resetm)
 			continue
 		}
 		body, err := ioutil.ReadAll(resp.Body)
@@ -159,6 +160,15 @@ func remove(s string) string {
 
 func urlEncode(s string) string {
 	return strings.NewReplacer("!", "%21", "#", "%23", "$", "%24", "&", "%26", "'", "%27", "(", "%28", ")", "%29", "*", "%2A", "+", "%2B", ",", "%2C", "/", "%2F", ":", "%3A", ";", "%3B", "=", "%3D", "?", "%3F", "@", "%40", "[", "%5B", "]", "%5D").Replace(s)
+}
+
+func timer(t int) {
+	for t1 := t - 1; t1 >= 0; t1-- {
+		for t2 := 59; t2 >= 0; t2-- {
+			fmt.Printf("\rretry automatically after %2dm%2ds", t1, t2)
+			time.Sleep(time.Second * 1)
+		}
+	}
 }
 
 func generateIndexHTML(c string) {
