@@ -68,15 +68,22 @@ func init() {
 	if config.State != "all" && config.State != "open" && config.State != "closed" {
 		config.State = "all"
 	}
+}
+
+func main() {
+
+	if config.Owner == "" || config.Repo == "" {
+		fmt.Println(helpMessages)
+		fmt.Println()
+		return
+	}
+
 	issuesDir = config.Owner + "_" + config.Repo + "_issues"
 	if err := os.Mkdir(issuesDir, 0755); os.IsExist(err) {
 		log.Printf("dir %s already exists\n", issuesDir)
 	} else {
 		log.Printf("create dir %s successfully\n", issuesDir)
 	}
-}
-
-func main() {
 
 	var issues []Issue
 	var page = 1
@@ -236,20 +243,7 @@ func generateIndexHTML(c string) {
 
 func usage() {
 	flag.Usage = func() {
-		fmt.Println(`
-Usage: export-github-issues [COMMANDS] [VARS]
-
-SUPPORT COMMANDS:
-	-h, --help               help messages
-
-SUPPORT VARS:
-	-o, --owner              github owner of repesitory
-	-r, --repo               github repesitory
-	-p, --per_page           pagination, page size up to 100
-	-s, --state              issues state (open, closed or all)
-	-ci, --client_id         github OAuth application's client ID
-	-cs, --client_secret     github OAuth application's client Secret
-				`)
+		fmt.Println(helpMessages)
 	}
 	var (
 		owner        string
@@ -283,3 +277,18 @@ SUPPORT VARS:
 	config.ClientID = clientID
 	config.ClientSecret = clientSecret
 }
+
+var helpMessages = `
+Usage: export-github-issues [COMMANDS] [VARS]
+
+SUPPORT COMMANDS:
+    -h, --help               help messages
+
+SUPPORT VARS:
+    -o, --owner              github owner of repesitory
+    -r, --repo               github repesitory
+    -p, --per_page           pagination, page size up to 100
+    -s, --state              issues state (open, closed or all)
+    -ci, --client_id         github OAuth application's client ID
+    -cs, --client_secret     github OAuth application's client Secret
+		`
