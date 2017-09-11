@@ -74,7 +74,8 @@ func main() {
 
 	if config.Owner == "" || config.Repo == "" {
 		fmt.Println(helpMessages)
-		fmt.Println()
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
 		return
 	}
 
