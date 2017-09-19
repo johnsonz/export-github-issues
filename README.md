@@ -41,7 +41,7 @@ SUPPORT VARS:
 
 ## Usage
 
-A simple application to export all issues for specified repository. The exported file format looks like this: date_title_state_issue number.html. An index.html file which includes all issues will be generated before the application finishes its run.
+A simple application to export all issues for specified repository. The exported file format looks like this: date_title_state_issue number.html. An index.html file which includes all issues will be generated after the application finishes its run.
 
 ## Advanced usage
 
@@ -66,7 +66,7 @@ SUPPORT VARS:
 
 ## Configuration
 
-`"owner":""` github owner of repo，such as "johnsonz"
+`"owner":""` github owner of repesitory, such as "johnsonz"
 
 `"repo":""` github repesitory, such as "export-github-issues"
 

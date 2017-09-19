@@ -54,6 +54,8 @@ type APILimit struct {
 
 const (
 	configFilename string = "config.json"
+	githubLink     string = "https://github.com"
+	githubAPILink  string = "https://api.github.com"
 )
 
 var config Config
@@ -90,14 +92,9 @@ func main() {
 	var page = 1
 
 	for {
-		resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
-		if err != nil {
-			log.Println("http.get error: ", err)
-		}
-		defer resp.Body.Close()
-
-		remaining := resp.Header["X-Ratelimit-Remaining"][0]
-		t, err := strconv.ParseInt(resp.Header["X-Ratelimit-Reset"][0], 10, 64)
+		header, body := getResponse(fmt.Sprintf("%s/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", githubAPILink, config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
+		remaining := header["X-Ratelimit-Remaining"][0]
+		t, err := strconv.ParseInt(remaining, 10, 64)
 		if err != nil {
 			log.Println("parse time error: ", err)
 		}
@@ -109,10 +106,7 @@ func main() {
 			timer(resetm)
 			continue
 		}
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Println("http.get response.body error: ", err)
-		}
+
 		var iss []Issue
 		if err := json.Unmarshal(body, &iss); err != nil {
 			log.Println("parse response.body error: ", err)
@@ -131,18 +125,22 @@ func main() {
 	for index, issue := range issues {
 		title := fmt.Sprintf("%s_%s_%s_#%d.html", issue.CreatedAt[:10], issue.Title, issue.State, issue.Number)
 		title = remove(title)
-		log.Printf("hit %d: %s\n", index, title)
+		log.Printf("get %d: %s\n", index, title)
 		buff.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href='%s' target='_blank'>#%d</td></tr>", index, issue.CreatedAt[:10], issue.Title, string(blackfriday.MarkdownBasic([]byte(issue.Body))), issue.State, urlEncode(title), issue.Number))
-		resp, err := http.Get(issue.HTMLURL)
-		if err != nil {
-			log.Println("get http response body error: ", err)
+
+		_, body := getResponse(issue.HTMLURL)
+		content := string(body)
+		for {
+			if !strings.Contains(content, "items not shown") {
+				break
+			}
+			needReplaced := content[strings.Index(content, "<include-fragment") : strings.Index(content, "</include-fragment>")+19]
+			link := needReplaced[strings.Index(needReplaced, "data-url=")+10:]
+			link = link[:strings.Index(link, ">")-1]
+			_, body := getResponse(githubLink + link)
+			content = strings.Replace(content, needReplaced, string(body), -1)
 		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Println("get http response body error: ", err)
-		}
-		if err := ioutil.WriteFile(filepath.Join(issuesDir, title), body, 0755); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(issuesDir, title), []byte(content), 0755); err != nil {
 			log.Println("error: ", err)
 		}
 	}
@@ -162,8 +160,21 @@ func parseConfig() {
 	}
 }
 
+func getResponse(link string) (http.Header, []byte) {
+	resp, err := http.Get(link)
+	if err != nil {
+		log.Println("get http response body error: ", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("get http response body error: ", err)
+	}
+	return resp.Header, body
+}
+
 func remove(s string) string {
-	return strings.NewReplacer("/", "", "\\", "", ":", "", "*", "", "<", "", ">", "", "|", "", "\"", "", "?", "").Replace(s)
+	return strings.NewReplacer("/", "", "\\", "", ":", "", "*", "", "<", "", ">", "", "|", "", "\"", "", "?", "", "", "").Replace(s)
 }
 
 func urlEncode(s string) string {
