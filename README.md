@@ -1,3 +1,8 @@
+<!--
+    Author: Johnson
+    Date: 2017
+    Description: A simple go application to export Github issues with comments to html files
+-->
 # Export github issues
 
 # [![Build Status](https://travis-ci.org/johnsonz/export-github-issues.svg?branch=master)](https://travis-ci.org/johnsonz/export-github-issues) [![GPLv3 License](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://github.com/johnsonz/export-github-issues/blob/master/LICENS)
