@@ -94,7 +94,8 @@ func main() {
 	for {
 		header, body := getResponse(fmt.Sprintf("%s/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", githubAPILink, config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
 		remaining := header["X-Ratelimit-Remaining"][0]
-		t, err := strconv.ParseInt(remaining, 10, 64)
+		reset := header["X-Ratelimit-Reset"][0]
+		t, err := strconv.ParseInt(reset, 10, 64)
 		if err != nil {
 			log.Println("parse time error: ", err)
 		}
@@ -184,7 +185,7 @@ func urlEncode(s string) string {
 func timer(t int) {
 	for t1 := t - 1; t1 >= 0; t1-- {
 		for t2 := 59; t2 >= 0; t2-- {
-			fmt.Printf("\rretry automatically after %2dm%2ds", t1, t2)
+			fmt.Printf("\rautomatically retry after %2dm%2ds", t1, t2)
 			time.Sleep(time.Second * 1)
 		}
 	}
