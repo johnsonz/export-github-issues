@@ -117,7 +117,7 @@ func main() {
 		}
 		issues = append(issues, iss...)
 		page++
-		log.Printf("hit %d issues\n", len(iss))
+		log.Printf("hit %d issues\n", len(issues))
 	}
 	if len(issues) == 0 {
 		log.Println("no issues found.")
