@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,17 @@ type Issue struct {
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 	Body          string `json:"body"`
+	IndexContent  string
+	HTMLBody      string
+	ImagesDir     string
+	Images        []Image
+}
+
+//Image struct
+type Image struct {
+	URL      string
+	Name     string
+	HasError bool
 }
 
 //Config struct
@@ -80,19 +92,135 @@ func main() {
 		fmt.Scanln()
 		return
 	}
+	issuesDir = getIssuesDir()
+	issues := getIssues()
+	if len(issues) == 0 {
+		log.Println("no issues found.")
+	}
+	var buff bytes.Buffer
+	for index, issue := range issues {
+		issue = issue.GetTitle()
+		issue = issue.GetIndexContent(index)
+		title := issue.Title
+		log.Printf("get %d: %s\n", index, title)
+		buff.WriteString(issue.IndexContent)
+		issue = issue.GetHTMLBody()
+		issue = issue.GetImagesDir()
+		issue = issue.GetImages()
+		issue.WriteToDisk()
 
+	}
+	generateIndexHTML(buff.String())
+	fmt.Println("\n\nPress Enter to continue...")
+	fmt.Scanln()
+}
+
+//GetTitle GetTitle
+func (issue Issue) GetTitle() Issue {
+	title := fmt.Sprintf("%s_%s_%s_#%d.html", issue.CreatedAt[:10], issue.Title, issue.State, issue.Number)
+	title = removeBadChar(title)
+	issue.Title = title
+	return issue
+}
+
+//GetIndexContent GetIndexContent
+func (issue Issue) GetIndexContent(index int) Issue {
+	issue.IndexContent = fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href='%s' target='_blank'>#%d</td></tr>", index, issue.CreatedAt[:10], issue.Title, string(blackfriday.MarkdownBasic([]byte(issue.Body))), issue.State, urlEncode(issue.Title), issue.Number)
+	return issue
+}
+
+//GetHTMLBody GetHTMLBody
+func (issue Issue) GetHTMLBody() Issue {
+	_, body, _ := getHTTPResponse(issue.HTMLURL)
+	content := string(body)
+	for {
+		if !strings.Contains(content, "items not shown") {
+			break
+		}
+		needReplaced := content[strings.Index(content, "<include-fragment") : strings.Index(content, "</include-fragment>")+19]
+		link := needReplaced[strings.Index(needReplaced, "data-url=")+10:]
+		link = link[:strings.Index(link, ">")-1]
+		_, body, _ := getHTTPResponse(githubLink + link)
+		content = strings.Replace(content, needReplaced, string(body), -1)
+	}
+	issue.HTMLBody = content
+	return issue
+}
+
+//GetImages GetImages
+func (issue Issue) GetImages() Issue {
+	reg := regexp.MustCompile(`(https?:\/\/)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?\.(png|jpg)`)
+	imgs := reg.FindAllString(issue.HTMLBody, -1)
+	var images []Image
+	for _, img := range imgs {
+		var image Image
+		image.URL = img
+		image.Name = filepath.Base(img)
+		images = append(images, image)
+	}
+	issue.Images = images
+	return issue
+}
+
+//GetIssuesDir GetIssuesDir
+func getIssuesDir() string {
 	issuesDir = config.Owner + "_" + config.Repo + "_issues"
 	if err := os.Mkdir(issuesDir, 0755); os.IsExist(err) {
 		log.Printf("dir %s already exists\n", issuesDir)
 	} else {
 		log.Printf("create dir %s successfully\n", issuesDir)
 	}
+	return issuesDir
+}
 
+//ReplaceByLocalImages ReplaceByLocalImages
+func (issue Issue) ReplaceByLocalImages(image Image) Issue {
+	if !image.HasError {
+		issue.HTMLBody = strings.Replace(issue.HTMLBody, image.URL, fmt.Sprintf("%s/%s/%s", "images", urlEncode(strings.TrimRight(issue.Title, ".html")), image.Name), -1)
+	}
+	return issue
+}
+
+//WriteToDisk WriteToDisk
+func (issue Issue) WriteToDisk() {
+	for _, img := range issue.Images {
+		image := img.WriteToDisk(issue.ImagesDir)
+		issue = issue.ReplaceByLocalImages(image)
+	}
+	if err := ioutil.WriteFile(filepath.Join(issuesDir, issue.Title), []byte(issue.HTMLBody), 0755); err != nil {
+		log.Println("write issue to disk error: ", err)
+	}
+}
+
+//WriteToDisk WriteToDisk
+func (image Image) WriteToDisk(imagesDir string) Image {
+	_, body, err := getHTTPResponse(image.URL)
+	if err != nil {
+		image.HasError = true
+	} else {
+		if err := ioutil.WriteFile(filepath.Join(imagesDir, image.Name), body, 0755); err != nil {
+			log.Println("write issue to disk error: ", err)
+		}
+	}
+	return image
+}
+
+//GetImagesDir GetImagesDir
+func (issue Issue) GetImagesDir() Issue {
+	imagesDir := filepath.Join(issuesDir, "images", strings.TrimRight(issue.Title, ".html"))
+	if err := os.MkdirAll(imagesDir, 0755); os.IsExist(err) {
+		// log.Printf("dir %s already exists\n", imagesDir)
+	} else {
+		// log.Printf("create dir %s successfully\n", imagesDir)
+	}
+	issue.ImagesDir = imagesDir
+	return issue
+}
+func getIssues() []Issue {
 	var issues []Issue
 	var page = 1
-
 	for {
-		header, body := getResponse(fmt.Sprintf("%s/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", githubAPILink, config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
+		header, body, _ := getHTTPResponse(fmt.Sprintf("%s/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", githubAPILink, config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
 		remaining := header["X-Ratelimit-Remaining"][0]
 		reset := header["X-Ratelimit-Reset"][0]
 		t, err := strconv.ParseInt(reset, 10, 64)
@@ -119,35 +247,7 @@ func main() {
 		page++
 		log.Printf("hit %d issues\n", len(issues))
 	}
-	if len(issues) == 0 {
-		log.Println("no issues found.")
-	}
-	var buff bytes.Buffer
-	for index, issue := range issues {
-		title := fmt.Sprintf("%s_%s_%s_#%d.html", issue.CreatedAt[:10], issue.Title, issue.State, issue.Number)
-		title = remove(title)
-		log.Printf("get %d: %s\n", index, title)
-		buff.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href='%s' target='_blank'>#%d</td></tr>", index, issue.CreatedAt[:10], issue.Title, string(blackfriday.MarkdownBasic([]byte(issue.Body))), issue.State, urlEncode(title), issue.Number))
-
-		_, body := getResponse(issue.HTMLURL)
-		content := string(body)
-		for {
-			if !strings.Contains(content, "items not shown") {
-				break
-			}
-			needReplaced := content[strings.Index(content, "<include-fragment") : strings.Index(content, "</include-fragment>")+19]
-			link := needReplaced[strings.Index(needReplaced, "data-url=")+10:]
-			link = link[:strings.Index(link, ">")-1]
-			_, body := getResponse(githubLink + link)
-			content = strings.Replace(content, needReplaced, string(body), -1)
-		}
-		if err := ioutil.WriteFile(filepath.Join(issuesDir, title), []byte(content), 0755); err != nil {
-			log.Println("error: ", err)
-		}
-	}
-	generateIndexHTML(buff.String())
-	fmt.Println("\n\nPress Enter to continue...")
-	fmt.Scanln()
+	return issues
 }
 
 //Parse config file
@@ -161,20 +261,22 @@ func parseConfig() {
 	}
 }
 
-func getResponse(link string) (http.Header, []byte) {
+func getHTTPResponse(link string) (http.Header, []byte, error) {
 	resp, err := http.Get(link)
 	if err != nil {
-		log.Println("get http response body error: ", err)
+		log.Println("get http response error: ", err)
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("get http response body error: ", err)
+		return nil, nil, err
 	}
-	return resp.Header, body
+	return resp.Header, body, nil
 }
 
-func remove(s string) string {
+func removeBadChar(s string) string {
 	return strings.NewReplacer("/", "", "\\", "", ":", "", "*", "", "<", "", ">", "", "|", "", "\"", "", "?", "", "", "").Replace(s)
 }
 
