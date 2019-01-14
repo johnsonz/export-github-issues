@@ -28,6 +28,7 @@ SUPPORT VARS:
     -s, --state              issues state (open, closed or all)
     -ci, --client_id         github OAuth application's client ID
     -cs, --client_secret     github OAuth application's client Secret
+    -a, --archive_images     save images to local disk
 ```
 
 ## 配置说明
@@ -43,6 +44,8 @@ SUPPORT VARS:
 `"client_id":""` 不填有API次数限制，"Settings"->"OAuth applications"中生成的Client ID
 
 `"client_secret":""` 不填有API次数限制，"Settings"->"OAuth applications"中生成的Client Secret
+
+`"archive_images":true` 是否将issue中的图片保存到本地，默认为true
 
 ## Usage
 
@@ -67,6 +70,7 @@ SUPPORT VARS:
     -s, --state              issues state (open, closed or all)
     -ci, --client_id         github OAuth application's client ID
     -cs, --client_secret     github OAuth application's client Secret
+    -a, --archive_images     save images to local disk
 ```
 
 ## Configuration
@@ -82,3 +86,5 @@ SUPPORT VARS:
 `"client_id":""` there is API rate limit if empty. If you need a higher rate limit, please put in your OAuth application's client ID and secret.
 
 `"client_secret":""` there is API rate limit if empty. If you need a higher rate limit, please put in your OAuth application's client ID and secret.
+
+`"archive_images":true` save images to local disk.

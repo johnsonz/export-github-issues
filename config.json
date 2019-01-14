@@ -4,5 +4,6 @@
     "per_page": 100,
     "state": "all",
     "client_id": "",
-    "client_secret": ""
+    "client_secret": "",
+    "archive_images": true
 }

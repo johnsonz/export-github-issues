@@ -50,12 +50,13 @@ type Image struct {
 
 //Config struct
 type Config struct {
-	Owner        string `json:"owner"`
-	Repo         string `json:"repo"`
-	PerPage      int    `json:"per_page"`
-	State        string `json:"state"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	Owner           string `json:"owner"`
+	Repo            string `json:"repo"`
+	PerPage         int    `json:"per_page"`
+	State           string `json:"state"`
+	ClientID        string `json:"client_id"`
+	ClientSecret    string `json:"client_secret"`
+	IsArchiveImages bool   `json:"archive_images"`
 }
 
 //APILimit struct
@@ -144,6 +145,9 @@ func (issue *Issue) GetHTMLBody() {
 
 //GetImages GetImages
 func (issue *Issue) GetImages() {
+	if !config.IsArchiveImages {
+		return
+	}
 	reg := regexp.MustCompile(`(https?:\/\/)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?\.(png|jpg)`)
 	imgs := reg.FindAllString(issue.HTMLBody, -1)
 	var images []Image
@@ -169,6 +173,9 @@ func getIssuesDir() string {
 
 //ReplaceByLocalImages ReplaceByLocalImages
 func (issue *Issue) ReplaceByLocalImages(image Image) {
+	if !config.IsArchiveImages {
+		return
+	}
 	if !image.HasError {
 		issue.HTMLBody = strings.Replace(issue.HTMLBody, image.URL, fmt.Sprintf("%s/%s/%s", "images", urlEncode(strings.TrimRight(issue.Title, ".html")), image.Name), -1)
 	}
@@ -176,10 +183,13 @@ func (issue *Issue) ReplaceByLocalImages(image Image) {
 
 //WriteToDisk WriteToDisk
 func (issue *Issue) WriteToDisk() {
-	for _, img := range issue.Images {
-		img.WriteToDisk(issue.ImagesDir)
-		issue.ReplaceByLocalImages(img)
+	if config.IsArchiveImages {
+		for _, img := range issue.Images {
+			img.WriteToDisk(issue.ImagesDir)
+			issue.ReplaceByLocalImages(img)
+		}
 	}
+
 	if err := ioutil.WriteFile(filepath.Join(issuesDir, issue.Title), []byte(issue.HTMLBody), 0755); err != nil {
 		log.Println("write issue to disk error: ", err)
 	}
@@ -199,6 +209,9 @@ func (image *Image) WriteToDisk(imagesDir string) {
 
 //GetImagesDir GetImagesDir
 func (issue *Issue) GetImagesDir() {
+	if !config.IsArchiveImages {
+		return
+	}
 	imagesDir := filepath.Join(issuesDir, "images", strings.TrimRight(issue.Title, ".html"))
 	if err := os.MkdirAll(imagesDir, 0755); os.IsExist(err) {
 		// log.Printf("dir %s already exists\n", imagesDir)
@@ -352,12 +365,13 @@ func usage() {
 		fmt.Println(helpMessages)
 	}
 	var (
-		owner        string
-		repo         string
-		perPage      int
-		state        string
-		clientID     string
-		clientSecret string
+		owner           string
+		repo            string
+		perPage         int
+		state           string
+		clientID        string
+		clientSecret    string
+		isArchiveImages bool
 	)
 
 	flag.StringVar(&owner, "o", config.Owner, "github owner of repesitory")
@@ -372,7 +386,8 @@ func usage() {
 	flag.StringVar(&clientID, "client_id", config.ClientID, "github OAuth application's client ID")
 	flag.StringVar(&clientSecret, "cs", config.ClientSecret, "github OAuth application's client Secret")
 	flag.StringVar(&clientSecret, "client_secret", config.ClientSecret, "github OAuth application's client Secret")
-
+	flag.BoolVar(&isArchiveImages, "a", config.IsArchiveImages, "save images to local")
+	flag.BoolVar(&isArchiveImages, "archive_images", config.IsArchiveImages, "save images to local")
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
@@ -382,6 +397,7 @@ func usage() {
 	config.State = state
 	config.ClientID = clientID
 	config.ClientSecret = clientSecret
+	config.IsArchiveImages = isArchiveImages
 }
 
 var helpMessages = `
@@ -397,4 +413,5 @@ SUPPORT VARS:
     -s, --state              issues state (open, closed or all)
     -ci, --client_id         github OAuth application's client ID
     -cs, --client_secret     github OAuth application's client Secret
+    -a, --archive_images     save images to local
 		`
