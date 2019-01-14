@@ -99,16 +99,14 @@ func main() {
 	}
 	var buff bytes.Buffer
 	for index, issue := range issues {
-		issue = issue.GetTitle()
-		issue = issue.GetIndexContent(index)
-		title := issue.Title
-		log.Printf("get %d: %s\n", index, title)
+		issue.GetTitle()
+		log.Printf("get %d: %s\n", index, issue.Title)
+		issue.GetIndexContent(index)
 		buff.WriteString(issue.IndexContent)
-		issue = issue.GetHTMLBody()
-		issue = issue.GetImagesDir()
-		issue = issue.GetImages()
+		issue.GetHTMLBody()
+		issue.GetImagesDir()
+		issue.GetImages()
 		issue.WriteToDisk()
-
 	}
 	generateIndexHTML(buff.String())
 	fmt.Println("\n\nPress Enter to continue...")
@@ -116,21 +114,19 @@ func main() {
 }
 
 //GetTitle GetTitle
-func (issue Issue) GetTitle() Issue {
+func (issue *Issue) GetTitle() {
 	title := fmt.Sprintf("%s_%s_%s_#%d.html", issue.CreatedAt[:10], issue.Title, issue.State, issue.Number)
 	title = removeBadChar(title)
 	issue.Title = title
-	return issue
 }
 
 //GetIndexContent GetIndexContent
-func (issue Issue) GetIndexContent(index int) Issue {
+func (issue *Issue) GetIndexContent(index int) {
 	issue.IndexContent = fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href='%s' target='_blank'>#%d</td></tr>", index, issue.CreatedAt[:10], issue.Title, string(blackfriday.MarkdownBasic([]byte(issue.Body))), issue.State, urlEncode(issue.Title), issue.Number)
-	return issue
 }
 
 //GetHTMLBody GetHTMLBody
-func (issue Issue) GetHTMLBody() Issue {
+func (issue *Issue) GetHTMLBody() {
 	_, body, _ := getHTTPResponse(issue.HTMLURL)
 	content := string(body)
 	for {
@@ -144,11 +140,10 @@ func (issue Issue) GetHTMLBody() Issue {
 		content = strings.Replace(content, needReplaced, string(body), -1)
 	}
 	issue.HTMLBody = content
-	return issue
 }
 
 //GetImages GetImages
-func (issue Issue) GetImages() Issue {
+func (issue *Issue) GetImages() {
 	reg := regexp.MustCompile(`(https?:\/\/)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?\.(png|jpg)`)
 	imgs := reg.FindAllString(issue.HTMLBody, -1)
 	var images []Image
@@ -159,7 +154,6 @@ func (issue Issue) GetImages() Issue {
 		images = append(images, image)
 	}
 	issue.Images = images
-	return issue
 }
 
 //GetIssuesDir GetIssuesDir
@@ -174,18 +168,17 @@ func getIssuesDir() string {
 }
 
 //ReplaceByLocalImages ReplaceByLocalImages
-func (issue Issue) ReplaceByLocalImages(image Image) Issue {
+func (issue *Issue) ReplaceByLocalImages(image Image) {
 	if !image.HasError {
 		issue.HTMLBody = strings.Replace(issue.HTMLBody, image.URL, fmt.Sprintf("%s/%s/%s", "images", urlEncode(strings.TrimRight(issue.Title, ".html")), image.Name), -1)
 	}
-	return issue
 }
 
 //WriteToDisk WriteToDisk
-func (issue Issue) WriteToDisk() {
+func (issue *Issue) WriteToDisk() {
 	for _, img := range issue.Images {
-		image := img.WriteToDisk(issue.ImagesDir)
-		issue = issue.ReplaceByLocalImages(image)
+		img.WriteToDisk(issue.ImagesDir)
+		issue.ReplaceByLocalImages(img)
 	}
 	if err := ioutil.WriteFile(filepath.Join(issuesDir, issue.Title), []byte(issue.HTMLBody), 0755); err != nil {
 		log.Println("write issue to disk error: ", err)
@@ -193,7 +186,7 @@ func (issue Issue) WriteToDisk() {
 }
 
 //WriteToDisk WriteToDisk
-func (image Image) WriteToDisk(imagesDir string) Image {
+func (image *Image) WriteToDisk(imagesDir string) {
 	_, body, err := getHTTPResponse(image.URL)
 	if err != nil {
 		image.HasError = true
@@ -202,11 +195,10 @@ func (image Image) WriteToDisk(imagesDir string) Image {
 			log.Println("write issue to disk error: ", err)
 		}
 	}
-	return image
 }
 
 //GetImagesDir GetImagesDir
-func (issue Issue) GetImagesDir() Issue {
+func (issue *Issue) GetImagesDir() {
 	imagesDir := filepath.Join(issuesDir, "images", strings.TrimRight(issue.Title, ".html"))
 	if err := os.MkdirAll(imagesDir, 0755); os.IsExist(err) {
 		// log.Printf("dir %s already exists\n", imagesDir)
@@ -214,7 +206,6 @@ func (issue Issue) GetImagesDir() Issue {
 		// log.Printf("create dir %s successfully\n", imagesDir)
 	}
 	issue.ImagesDir = imagesDir
-	return issue
 }
 func getIssues() []Issue {
 	var issues []Issue
