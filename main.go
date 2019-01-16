@@ -131,9 +131,10 @@ func (issue *Issue) GetHTMLBody() {
 	_, body, _ := getHTTPResponse(issue.HTMLURL)
 	content := string(body)
 	for {
-		if !strings.Contains(content, "items not shown") {
+		if !strings.Contains(content, "items not shown") || strings.Contains(issue.Title, "items not shown") {
 			break
 		}
+
 		needReplaced := content[strings.Index(content, "<include-fragment") : strings.Index(content, "</include-fragment>")+19]
 		link := needReplaced[strings.Index(needReplaced, "data-url=")+10:]
 		link = link[:strings.Index(link, ">")-1]
@@ -224,7 +225,10 @@ func getIssues() []Issue {
 	var issues []Issue
 	var page = 1
 	for {
-		header, body, _ := getHTTPResponse(fmt.Sprintf("%s/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", githubAPILink, config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
+		header, body, err := getHTTPResponse(fmt.Sprintf("%s/repos/%s/%s/issues?page=%d&per_page=%d&state=%s&client_id=%s&client_secret=%s", githubAPILink, config.Owner, config.Repo, page, config.PerPage, config.State, config.ClientID, config.ClientSecret))
+		if err != nil {
+			log.Fatalln("get issues error", err)
+		}
 		remaining := header["X-Ratelimit-Remaining"][0]
 		reset := header["X-Ratelimit-Reset"][0]
 		t, err := strconv.ParseInt(reset, 10, 64)
